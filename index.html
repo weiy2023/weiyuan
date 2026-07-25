@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>伟源鼎盛 · 工作记录与工资结算</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+    background: #f3f4f8;
+    color: #1f2330;
+    min-height: 100vh;
+  }
+  .status-bar { height: 44px; display: flex; justify-content: space-between; align-items: center; padding: 0 24px; font-size: 15px; font-weight: 600; }
+  .nav-bar { height: 44px; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 600; }
+  .header {
+    background: linear-gradient(135deg, #5468ff 0%, #3d4edb 100%);
+    padding: 18px 20px 24px; color: #fff;
+  }
+  .header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .header-title { font-size: 20px; font-weight: 700; }
+  .header-date { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .weekday-badge { background: rgba(255,255,255,0.22); padding: 4px 10px; border-radius: 999px; font-size: 12px; }
+
+  .tabs { display: flex; gap: 8px; padding: 14px 16px 6px; background: linear-gradient(180deg, #5468ff 0%, #f3f4f8 100%); overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 1; min-width: 90px; background: rgba(255,255,255,0.65); border-radius: 14px; padding: 12px 8px;
+    display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 500;
+    color: #4a5070; white-space: nowrap; cursor: pointer;
+  }
+  .tab.active { background: #fff; color: #1f2330; font-weight: 600; border-bottom: 2.5px solid #5468ff; }
+
+  .card { background: #fff; margin: 12px 16px; border-radius: 16px; padding: 16px; box-shadow: 0 2px 12px rgba(50,60,100,0.04); }
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 8px; flex-wrap: wrap; }
+  .section-header h2 { font-size: 17px; font-weight: 600; }
+  .btn { background: #5468ff; color: #fff; border: none; border-radius: 10px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-secondary { background: #f5f6fb; color: #5468ff; }
+  .btn-danger { background: #ffe5e5; color: #ff5b5b; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+
+  .date-picker { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 8px; }
+  .date-picker input { flex: 1; padding: 8px 12px; border-radius: 10px; border: 1px solid #e0e3ed; font-size: 14px; }
+  .date-picker button { background: #f5f6fb; color: #1f2330; border: none; border-radius: 10px; padding: 8px 14px; font-weight: 600; }
+
+  .summary-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+  .summary-row.three { grid-template-columns: repeat(3, 1fr); }
+  .factory-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .factory-tab {
+    flex: 1; padding: 10px 6px; text-align: center; background: #f5f6fb; border-radius: 10px;
+    font-size: 14px; font-weight: 500; color: #6b7293; cursor: pointer; transition: all 0.2s;
+  }
+  .factory-tab.active { background: #5468ff; color: #fff; font-weight: 600; }
+  .machine-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .machine-tab {
+    flex: 1; padding: 8px 6px; text-align: center; background: #fff0e6; border-radius: 8px;
+    font-size: 13px; font-weight: 500; color: #ff7a3c; cursor: pointer; transition: all 0.2s;
+    border: 1px solid #ffd8b8;
+  }
+  .machine-tab.active { background: #ff7a3c; color: #fff; font-weight: 600; border-color: #ff7a3c; }
+  .summary-row.two { grid-template-columns: repeat(2, 1fr); }
+  .curMachine { color: #ff7a3c; font-weight: 600; }
+  .pvc-row { display: grid; grid-template-columns: 60px 1fr 30px; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .pvc-row label { font-size: 14px; font-weight: 600; color: #ff7a3c; }
+  .pvc-row input { padding: 10px 12px; border: 1px solid #ffd8b8; border-radius: 10px; font-size: 14px; outline: none; background: #fff8f0; text-align: right; }
+  .pvc-unit { font-size: 12px; color: #b85a00; }
+  .shipping-item { display: flex; align-items: center; gap: 10px; background: #f5fbf6; border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+  .shipping-item .ship-info { flex: 1; }
+  .shipping-item .ship-name { font-weight: 600; font-size: 14px; }
+  .shipping-item .ship-detail { font-size: 12px; color: #4cd964; margin-top: 2px; }
+  .monthly-factory { background: #f5f6fb; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .monthly-factory:last-child { margin-bottom: 0; }
+  .mf-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .mf-header h3 { font-size: 15px; font-weight: 600; }
+  .mf-total { font-size: 15px; font-weight: 700; color: #5468ff; }
+  .mf-pvc { background: #fff0e6; color: #b85a00; font-size: 12px; padding: 8px 10px; border-radius: 8px; margin-bottom: 10px; font-weight: 500; }
+  .mf-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .mf-table th, .mf-table td { padding: 8px 6px; border-bottom: 1px solid #e8eaf0; }
+  .mf-table th { color: #8a90a8; font-weight: 500; text-align: left; }
+  .mf-table .num { text-align: right; font-weight: 600; }
+  .summary-box { background: #f5f6fb; border-radius: 12px; padding: 14px 8px; text-align: center; }
+  .summary-box .v { font-size: 20px; font-weight: 700; color: #1f2330; }
+  .summary-box .k { font-size: 11px; color: #8a90a8; margin-top: 2px; }
+  .summary-box.highlight { background: #e8eafd; }
+  .summary-box.highlight .v { color: #5468ff; }
+
+  .prod-row { display: grid; grid-template-columns: 1fr 80px 60px 40px auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .prod-row select { padding: 8px 4px; border: 1px solid #e0e3ed; border-radius: 10px; font-size: 13px; background: #fafbff; outline: none; }
+  .prod-row input { padding: 10px 12px; border: 1px solid #e0e3ed; border-radius: 10px; font-size: 14px; outline: none; background: #fafbff; }
+  .prod-row input[type="number"] { text-align: right; }
+  .prod-row.full { background: #e6f9e8; border-radius: 10px; padding: 4px 8px; }
+  .prod-row.full input { background: #fff; border-color: #4cd964; font-weight: 600; }
+  .full-badge { display: none; background: #4cd964; color: #fff; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; white-space: nowrap; margin-left: 6px; }
+  .prod-row.full .full-badge { display: inline-block; }
+  .prod-row { transition: background 0.3s; }
+  @keyframes flashGreen { 0%{background:#c8f7cb} 100%{background:#e6f9e8} }
+  .prod-row.flash { animation: flashGreen 0.6s; }
+
+  .salary-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .salary-table th, .salary-table td { padding: 10px 4px; text-align: left; border-bottom: 1px solid #f0f0f4; }
+  .salary-table th { color: #8a90a8; font-weight: 500; font-size: 12px; }
+  .salary-table td input { width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid #e0e3ed; font-size: 13px; }
+  .salary-table .num { text-align: right; }
+  .salary-table .total-row { font-weight: 700; color: #5468ff; }
+  .salary-table .total-row td { border-top: 2px solid #5468ff; border-bottom: none; padding-top: 12px; }
+
+  .month-picker { display: flex; align-items: center; gap: 8px; }
+  .month-picker input { padding: 8px 12px; border-radius: 10px; border: 1px solid #e0e3ed; font-size: 14px; }
+
+  .form-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
+  .form-row input { flex: 1; min-width: 80px; padding: 10px 12px; border: 1px solid #e0e3ed; border-radius: 10px; font-size: 14px; outline: none; background: #fafbff; }
+
+  .employee-list { display: flex; flex-direction: column; gap: 8px; }
+  .employee-item { display: flex; align-items: center; gap: 8px; background: #f5f6fb; border-radius: 12px; padding: 10px 12px; }
+  .employee-item .name { flex: 1; font-weight: 500; }
+  .employee-item .post { font-size: 12px; color: #6b7293; }
+  .employee-item .salary { font-size: 13px; font-weight: 600; color: #5468ff; }
+
+  .hidden { display: none !important; }
+  .footer-tip { text-align: center; color: #b0b4c4; font-size: 12px; padding: 8px 0 24px; }
+  .tip-box { background: #fff8e8; color: #b87b00; font-size: 12px; padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="status-bar"><div class="left">01:28</div><div class="right">●●● <span style="border:1.2px solid #1f2330;border-radius:4px;padding:1px 4px;font-size:11px;">82%</span></div></div>
+<div class="nav-bar">伟源鼎盛 · 工作记录</div>
+
+<div class="header">
+  <div class="header-top">
+    <div class="header-title">🏭 伟源鼎盛工作记录</div>
+    <div class="header-date"><span id="todayDate"></span><span class="weekday-badge" id="todayWeek"></span></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="daily">📦 每日产量</div>
+  <div class="tab" data-tab="monthly">📊 月度汇总</div>
+  <div class="tab" data-tab="salary">💰 月工资结算</div>
+  <div class="tab" data-tab="employees">👥 员工管理</div>
+  <div class="tab" data-tab="data">💾 数据备份</div>
+</div>
+
+<!-- 每日产量 -->
+<div id="daily" class="tab-content">
+  <div class="card">
+    <div class="date-picker">
+      <button id="prevDate">‹</button>
+      <input type="date" id="recordDate">
+      <button id="nextDate">›</button>
+    </div>
+    <div class="section-header">
+      <h2>今日生产记录</h2>
+      <button class="btn btn-sm" id="saveProd">保存</button>
+    </div>
+    <div class="factory-tabs" id="factoryTabs">
+      <div class="factory-tab active" data-factory="滁州">🏢 滁州厂</div>
+      <div class="factory-tab" data-factory="天津">🏢 天津厂</div>
+      <div class="factory-tab" data-factory="武汉">🏢 武汉厂</div>
+    </div>
+    <div class="machine-tabs hidden" id="machineTabs">
+      <div class="machine-tab active" data-machine="1号机">1号机</div>
+      <div class="machine-tab" data-machine="2号机">2号机</div>
+    </div>
+    <div class="tip-box">当前记录「<span id="curFactory">滁州</span>厂<span id="curMachineWrap"></span>」的产量。点击上方切换,各机台独立记录。</div>
+    <div id="prodList"></div>
+    <div style="margin-top:10px;"><button class="btn btn-sm btn-secondary" id="addProd">+ 添加一行</button></div>
+  </div>
+  <!-- 滁州厂PVC独立记录区(不参与考核) -->
+  <div class="card hidden" id="pvcCard">
+    <div class="section-header">
+      <h2>♻️ 滁州厂 PVC 记录</h2>
+      <span style="font-size:12px;color:#ff7a3c;">不计入考核</span>
+    </div>
+    <div class="tip-box" style="background:#fff0e6;color:#b85a00;">独立记录滁州厂的 PVC 产量,不参与机台考核和发车提醒。</div>
+    <div class="pvc-row">
+      <label>透明</label>
+      <input type="number" id="pvc-透明" placeholder="包数" oninput="savePVC('透明', this.value)">
+      <span class="pvc-unit">包</span>
+    </div>
+    <div class="pvc-row">
+      <label>白</label>
+      <input type="number" id="pvc-白" placeholder="包数" oninput="savePVC('白', this.value)">
+      <span class="pvc-unit">包</span>
+    </div>
+    <div class="pvc-row">
+      <label>黑</label>
+      <input type="number" id="pvc-黑" placeholder="包数" oninput="savePVC('黑', this.value)">
+      <span class="pvc-unit">包</span>
+    </div>
+    <div class="summary-row" style="margin-top:12px;margin-bottom:0;">
+      <div class="summary-box" style="background:#fff0e6;"><div class="v" id="pvcTotal">0</div><div class="k">PVC合计包数</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-header"><h2>本日各厂合计</h2></div>
+    <div class="summary-row three">
+      <div class="summary-box" id="box-滁州"><div class="v" id="total-滁州">0</div><div class="k">滁州厂 包数</div></div>
+      <div class="summary-box" id="box-天津"><div class="v" id="total-天津">0</div><div class="k">天津厂 包数</div></div>
+      <div class="summary-box" id="box-武汉"><div class="v" id="total-武汉">0</div><div class="k">武汉厂 包数</div></div>
+    </div>
+    <div id="chuzhouMachines" class="hidden" style="margin-top:12px;">
+      <div style="font-size:13px;color:#6b7293;margin-bottom:8px;font-weight:500;">滁州厂机台明细</div>
+      <div class="summary-row two">
+        <div class="summary-box" id="box-1号机"><div class="v" id="total-1号机">0</div><div class="k">1号机 包数</div></div>
+        <div class="summary-box" id="box-2号机"><div class="v" id="total-2号机">0</div><div class="k">2号机 包数</div></div>
+      </div>
+    </div>
+    <div class="summary-row" style="margin-top:10px;">
+      <div class="summary-box highlight"><div class="v" id="dayTotal">0</div><div class="k">三厂合计</div></div>
+      <div class="summary-box"><div class="v" id="dayItems">0</div><div class="k">当前记录货品种类</div></div>
+    </div>
+  </div>
+  <!-- 待发车清单 -->
+  <div class="card">
+    <div class="section-header"><h2>🚚 待发车清单</h2></div>
+    <div class="tip-box">下列货品已满24包,确认发走后点「已发车」按钮,该品类重新从0攒包数再提醒。实际产量记录不会删除。</div>
+    <div id="shippingList"></div>
+  </div>
+</div>
+
+<!-- 月度汇总 -->
+<div id="monthly" class="tab-content hidden">
+  <div class="card">
+    <div class="section-header">
+      <h2>📊 月度汇总</h2>
+      <input type="month" id="monthlyMonth" style="padding:8px 12px;border-radius:10px;border:1px solid #e0e3ed;">
+    </div>
+    <div id="monthlyContent"></div>
+  </div>
+</div>
+
+<!-- 月工资结算 -->
+<div id="salary" class="tab-content hidden">
+  <div class="card">
+    <div class="section-header">
+      <h2>选择月份</h2>
+      <div class="month-picker"><input type="month" id="salaryMonth"></div>
+    </div>
+    <div class="tip-box">每人输入「月薪」「出勤天数」和「加班小时」。日薪 = 月薪 ÷ 当月天数;时薪 = 日薪 ÷ 10小时;应发工资 = 日薪 × 出勤天数 + 时薪 × 加班小时。底部「合计」就是这个月总共要发多少钱。</div>
+    <div class="summary-row">
+      <div class="summary-box highlight"><div class="v" id="monthTotal">¥0</div><div class="k">本月合计发放</div></div>
+      <div class="summary-box"><div class="v" id="monthDays">0</div><div class="k">当月天数</div></div>
+    </div>
+    <table class="salary-table">
+      <thead><tr><th>姓名</th><th>岗位</th><th>月薪</th><th class="num">出勤<br>天数</th><th class="num">日薪</th><th class="num">时薪</th><th class="num">加班<br>小时</th><th class="num">应发工资</th><th></th></tr></thead>
+      <tbody id="salaryBody"></tbody>
+      <tfoot><tr class="total-row"><td colspan="7">合计</td><td class="num" id="salaryTotal">¥0</td><td></td></tr></tfoot>
+    </table>
+    <div style="margin-top:12px;display:flex;gap:8px;">
+      <button class="btn" id="saveSalary">保存工资表</button>
+      <button class="btn btn-secondary" id="addSalaryRow">+ 添加一行</button>
+    </div>
+  </div>
+</div>
+
+<!-- 员工管理 -->
+<div id="employees" class="tab-content hidden">
+  <div class="card">
+    <div class="section-header"><h2>添加员工</h2></div>
+    <div class="form-row">
+      <input type="text" id="empName" placeholder="姓名">
+      <input type="text" id="empPost" placeholder="岗位">
+      <input type="number" id="empSalary" placeholder="月薪(元)" min="0">
+      <button class="btn" id="addEmployee">添加</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-header"><h2>员工列表</h2><button class="btn btn-sm btn-danger" id="clearEmployees">清空</button></div>
+    <div class="employee-list" id="employeeList"></div>
+  </div>
+</div>
+
+<!-- 数据备份 -->
+<div id="data" class="tab-content hidden">
+  <div class="card">
+    <div class="section-header"><h2>数据备份与恢复</h2></div>
+    <p style="font-size:13px;color:#6b7293;line-height:1.6;margin-bottom:12px;">数据存在浏览器本地。请定期复制下方文本备份,换设备时粘贴恢复。</p>
+    <textarea id="dataJson" style="width:100%;min-height:160px;padding:10px;border-radius:10px;border:1px solid #e0e3ed;font-size:12px;" readonly></textarea>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" id="copyData">复制备份</button>
+      <button class="btn btn-secondary" id="loadData">恢复数据</button>
+      <button class="btn btn-danger" id="clearAll">清空所有数据</button>
+    </div>
+  </div>
+</div>
+
+<div class="footer-tip">伟源鼎盛 · 每日工作记录与工资结算</div>
+
+<script>
+  const defaultEmployees = [
+    { id: 1, name: "韩崇峰", post: "淋膜/挑料", salary: 8000 },
+    { id: 2, name: "hhb", post: "打包/装卸", salary: 7000 },
+    { id: 3, name: "李憨憨", post: "管理", salary: 9000 },
+    { id: 4, name: "小褚", post: "切料/拉货", salary: 7000 },
+    { id: 5, name: "易美东", post: "拉货/打包", salary: 6500 },
+    { id: 6, name: "褚", post: "调度/管理", salary: 9000 }
+  ];
+
+  let data = JSON.parse(localStorage.getItem('weiyuanData2') || 'null');
+  if (!data) {
+    data = {
+      employees: defaultEmployees,
+      production: {}, // { '2026-07-23': { '滁州-1号机': [...], '天津': [...], 'pvc': {...} } }
+      salary: {}, // { '2026-07': [...] }
+      shipped: {} // { '滁州': { '牛皮淋膜纸': 24 }, '天津': {...} } 已发车包数偏移量
+    };
+  }
+  if (!data.shipped) data.shipped = {};
+
+  function saveData() { localStorage.setItem('weiyuanData2', JSON.stringify(data)); }
+  function fmtDate(d) { return d.toISOString().split('T')[0]; }
+  function pad(n) { return n < 10 ? '0' + n : n; }
+  function cnWeek(d) { return ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()]; }
+
+  const today = new Date();
+  document.getElementById('todayDate').textContent = `${today.getMonth()+1}月${today.getDate()}日`;
+  document.getElementById('todayWeek').textContent = cnWeek(today);
+
+  // Tab
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+      document.getElementById(tab.dataset.tab).classList.remove('hidden');
+      if (tab.dataset.tab === 'data') renderData();
+      if (tab.dataset.tab === 'monthly') renderMonthly();
+    });
+  });
+
+  // 员工管理
+  function renderEmployees() {
+    const list = document.getElementById('employeeList');
+    list.innerHTML = '';
+    if (!data.employees.length) {
+      list.innerHTML = '<div style="color:#8a90a8;font-size:13px;text-align:center;padding:20px;">暂无员工,请在上方添加</div>';
+      return;
+    }
+    data.employees.forEach(emp => {
+      const div = document.createElement('div');
+      div.className = 'employee-item';
+      div.innerHTML = `
+        <div class="name">${emp.name}</div>
+        <div class="post">${emp.post}</div>
+        <div class="salary">¥${emp.salary}</div>
+        <button class="btn btn-sm btn-danger" onclick="deleteEmployee(${emp.id})">删除</button>
+      `;
+      list.appendChild(div);
+    });
+  }
+  function addEmployee() {
+    const name = document.getElementById('empName').value.trim();
+    const post = document.getElementById('empPost').value.trim();
+    const salary = parseFloat(document.getElementById('empSalary').value) || 0;
+    if (!name) return alert('请输入姓名');
+    const id = data.employees.length ? Math.max(...data.employees.map(e => e.id)) + 1 : 1;
+    data.employees.push({ id, name, post, salary });
+    saveData();
+    document.getElementById('empName').value = '';
+    document.getElementById('empPost').value = '';
+    document.getElementById('empSalary').value = '';
+    renderEmployees();
+  }
+  window.deleteEmployee = function(id) {
+    if (!confirm('确定删除?')) return;
+    data.employees = data.employees.filter(e => e.id !== id);
+    saveData();
+    renderEmployees();
+  };
+  document.getElementById('addEmployee').addEventListener('click', addEmployee);
+  document.getElementById('clearEmployees').addEventListener('click', () => {
+    if (!confirm('确定清空所有员工?')) return;
+    data.employees = [];
+    saveData();
+    renderEmployees();
+  });
+
+  // 每日产量
+  const dateInput = document.getElementById('recordDate');
+  dateInput.value = fmtDate(today);
+  let currentFactory = '滁州';
+  const FACTORIES = ['滁州', '天津', '武汉'];
+  const MACHINES = ['1号机', '2号机'];
+  let currentMachine = '1号机';
+
+  // 厂区切换
+  document.querySelectorAll('.factory-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.factory-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentFactory = tab.dataset.factory;
+      document.getElementById('curFactory').textContent = currentFactory;
+      // 滁州厂显示机台切换和PVC卡片
+      const showMachines = currentFactory === '滁州';
+      document.getElementById('machineTabs').classList.toggle('hidden', !showMachines);
+      document.getElementById('chuzhouMachines').classList.toggle('hidden', !showMachines);
+      document.getElementById('pvcCard').classList.toggle('hidden', !showMachines);
+      document.getElementById('curMachineWrap').innerHTML = showMachines ? ` · <span class="curMachine">${currentMachine}</span>` : '';
+      renderProduction();
+    });
+  });
+
+  // 机台切换
+  document.querySelectorAll('.machine-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.machine-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentMachine = tab.dataset.machine;
+      document.getElementById('curMachineWrap').innerHTML = ` · <span class="curMachine">${currentMachine}</span>`;
+      renderProduction();
+    });
+  });
+
+  // 获取当前记录key:滁州厂带机台,其它厂直接厂名
+  function getCurrentKey() {
+    return currentFactory === '滁州' ? `滁州-${currentMachine}` : currentFactory;
+  }
+
+  function getDayItems(date) {
+    const key = getCurrentKey();
+    if (!data.production[date]) data.production[date] = {};
+    if (!data.production[date][key]) data.production[date][key] = [];
+    return data.production[date][key];
+  }
+
+  // PVC数据存取 { date: { 透明: 10, 白: 5, 黑: 8 } }
+  function getPVC(date) {
+    if (!data.production[date]) return {};
+    if (!data.production[date]['pvc']) data.production[date]['pvc'] = {};
+    return data.production[date]['pvc'];
+  }
+  window.savePVC = function(color, value) {
+    const date = dateInput.value;
+    const pvc = getPVC(date);
+    pvc[color] = value;
+    saveData();
+    renderPVC();
+  };
+  function renderPVC() {
+    const date = dateInput.value;
+    const pvc = getPVC(date);
+    ['透明', '白', '黑'].forEach(c => {
+      const el = document.getElementById('pvc-' + c);
+      if (el) el.value = pvc[c] || '';
+    });
+    const total = ['透明','白','黑'].reduce((s, c) => s + (parseFloat(pvc[c]) || 0), 0);
+    document.getElementById('pvcTotal').textContent = total;
+  }
+
+  function renderProduction() {
+    const date = dateInput.value;
+    const items = getDayItems(date);
+    const list = document.getElementById('prodList');
+    list.innerHTML = '';
+    if (!items.length) {
+      items.push({ name: '', qty: '' });
+    }
+    items.forEach((item, idx) => {
+      const qty = parseFloat(item.qty) || 0;
+      const unit = item.unit || '包';
+      const canSelectUnit = currentFactory === '武汉'; // 只有武汉厂能选单位
+      const isFull = unit === '包' && qty >= 24 && qty % 24 === 0;
+      const row = document.createElement('div');
+      row.className = 'prod-row' + (isFull ? ' full' : '');
+      row.dataset.idx = idx;
+      const unitCell = canSelectUnit
+        ? `<select onchange="updateProd(${idx}, 'unit', this.value)">
+            <option value="包" ${unit==='包'?'selected':''}>包</option>
+            <option value="袋" ${unit==='袋'?'selected':''}>袋</option>
+            <option value="卷" ${unit==='卷'?'selected':''}>卷</option>
+            <option value="件" ${unit==='件'?'selected':''}>件</option>
+          </select>`
+        : `<span style="text-align:center;color:#8a90a8;font-size:13px;">包</span>`;
+      row.innerHTML = `
+        <input type="text" placeholder="货品名称(如牛皮淋膜纸)" value="${item.name || ''}" onchange="updateProd(${idx}, 'name', this.value)">
+        <input type="number" placeholder="数量" value="${item.qty || ''}" onchange="updateProd(${idx}, 'qty', this.value)" oninput="onQtyInput(${idx}, this.value)">
+        ${unitCell}
+        <button class="btn btn-sm btn-danger" onclick="deleteProd(${idx})">×</button>
+        <span class="full-badge">🚚 可发车</span>
+      `;
+      list.appendChild(row);
+    });
+    checkFull();
+    updateDayTotal();
+    renderPVC();
+    renderShippingList();
+  }
+  window.updateProd = function(idx, key, value) {
+    const date = dateInput.value;
+    const items = getDayItems(date);
+    if (!items[idx]) items[idx] = {};
+    items[idx][key] = value;
+    saveData();
+    updateDayTotal();
+    checkFull();
+  };
+
+  // 获取某厂某品类的合计包数(滁州厂=1号机+2号机同名品类合并,仅"包"单位)
+  // deductShipped=true 时减去已发车包数,返回"待发车包数"
+  function getFactoryProductQty(date, factory, productName, deductShipped) {
+    if (!data.production[date]) return 0;
+    let total = 0;
+    if (factory === '滁州') {
+      MACHINES.forEach(m => {
+        const items = data.production[date][`滁州-${m}`] || [];
+        items.forEach(i => {
+          if (i.name === productName && (i.unit || '包') === '包') total += (parseFloat(i.qty) || 0);
+        });
+      });
+    } else {
+      const items = data.production[date][factory] || [];
+      items.forEach(i => {
+        if (i.name === productName && (i.unit || '包') === '包') total += (parseFloat(i.qty) || 0);
+      });
+    }
+    if (deductShipped) {
+      const shipped = (data.shipped[factory] && data.shipped[factory][productName]) || 0;
+      total -= shipped;
+    }
+    return total;
+  }
+
+  // 输入时实时检测满24(按厂合并同品类)
+  window.onQtyInput = function(idx, value) {
+    const date = dateInput.value;
+    const items = getDayItems(date);
+    if (!items[idx]) items[idx] = {};
+    const oldQty = parseFloat(items[idx].qty) || 0;
+    const newQty = parseFloat(value) || 0;
+    items[idx].qty = value;
+    const productName = items[idx].name || '';
+    const unit = items[idx].unit || '包';
+
+    // 非包单位不发车提醒
+    if (unit !== '包') {
+      const row = document.querySelector(`.prod-row[data-idx="${idx}"]`);
+      if (row) row.classList.remove('full');
+      updateDayTotal();
+      saveData();
+      return;
+    }
+
+    // 该品类在当前厂的待发车合计(滁州合并1+2号机,减已发车)
+    const oldPending = getFactoryProductQty(date, currentFactory, productName, true) - newQty + oldQty;
+    const newPending = getFactoryProductQty(date, currentFactory, productName, true);
+
+    const oldMults = Math.floor(oldPending / 24);
+    const newMults = Math.floor(newPending / 24);
+
+    if (newPending > 0 && newMults > oldMults && productName) {
+      const scope = currentFactory + '厂';
+      const cars = newMults;
+      const row = document.querySelector(`.prod-row[data-idx="${idx}"]`);
+      if (row) {
+        row.classList.add('full', 'flash');
+        setTimeout(() => row.classList.remove('flash'), 600);
+      }
+      alert(`🚚 发车提醒!\n\n${scope} · ${productName}\n待发车已满 ${newMults}×24 = ${newMults*24} 包\n可以发 ${cars} 车!`);
+    }
+    checkFull();
+    updateDayTotal();
+    renderShippingList();
+    saveData();
+  };
+
+  // 检查当前所有行的满24状态(按厂合并同品类,仅"包"单位,减已发车)
+  function checkFull() {
+    const date = dateInput.value;
+    const items = getDayItems(date);
+    items.forEach((item, idx) => {
+      const productName = item.name || '';
+      const unit = item.unit || '包';
+      const row = document.querySelector(`.prod-row[data-idx="${idx}"]`);
+      if (!row || !productName) return;
+      if (unit !== '包') { row.classList.remove('full'); return; }
+      const pending = getFactoryProductQty(date, currentFactory, productName, true);
+      if (pending > 0 && pending % 24 === 0) {
+        row.classList.add('full');
+      } else {
+        row.classList.remove('full');
+      }
+    });
+  }
+
+  function renderShippingList() {
+    const date = dateInput.value;
+    const list = document.getElementById('shippingList');
+    list.innerHTML = '';
+    let hasAny = false;
+    FACTORIES.forEach(f => {
+      // 收集该厂所有"包"单位的品类名
+      const productNames = new Set();
+      if (f === '滁州') {
+        MACHINES.forEach(m => {
+          (data.production[date] && data.production[date][`滁州-${m}`] || []).forEach(i => {
+            if (i.name && (i.unit || '包') === '包') productNames.add(i.name);
+          });
+        });
+      } else {
+        (data.production[date] && data.production[date][f] || []).forEach(i => {
+          if (i.name && (i.unit || '包') === '包') productNames.add(i.name);
+        });
+      }
+      productNames.forEach(name => {
+        const total = getFactoryProductQty(date, f, name, false);
+        const shipped = (data.shipped[f] && data.shipped[f][name]) || 0;
+        const pending = total - shipped;
+        if (pending >= 24) {
+          hasAny = true;
+          const cars = Math.floor(pending / 24);
+          const div = document.createElement('div');
+          div.className = 'shipping-item';
+          div.innerHTML = `
+            <div class="ship-info">
+              <div class="ship-name">${f}厂 · ${name}</div>
+              <div class="ship-detail">待发车 ${pending} 包 · 可发 ${cars} 车</div>
+            </div>
+            <button class="btn btn-sm" onclick="confirmShip('${f}', '${name}', ${cars * 24})">已发车</button>
+          `;
+          list.appendChild(div);
+        }
+      });
+    });
+    if (!hasAny) {
+      list.innerHTML = '<div style="color:#8a90a8;font-size:13px;text-align:center;padding:20px;">暂无待发车货品(各品类待发车未满24包)</div>';
+    }
+  }
+  window.confirmShip = function(factory, name, shippedQty) {
+    if (!confirm(`确认「${factory}厂 · ${name}」已发走 ${shippedQty} 包?\n\n确认后该品类待发车计数清零,重新攒24包再提醒。实际产量记录保留。`)) return;
+    if (!data.shipped[factory]) data.shipped[factory] = {};
+    data.shipped[factory][name] = ((data.shipped[factory][name]) || 0) + shippedQty;
+    saveData();
+    checkFull();
+    renderShippingList();
+    alert('✅ 已记录发车,该品类重新从0攒包数');
+  };
+  window.deleteProd = function(idx) {
+    const date = dateInput.value;
+    const items = getDayItems(date);
+    items.splice(idx, 1);
+    const key = getCurrentKey();
+    if (!items.length) delete data.production[date][key];
+    saveData();
+    renderProduction();
+  };
+  document.getElementById('addProd').addEventListener('click', () => {
+    const date = dateInput.value;
+    const items = getDayItems(date);
+    items.push({ name: '', qty: '' });
+    saveData();
+    renderProduction();
+  });
+  document.getElementById('saveProd').addEventListener('click', () => {
+    saveData();
+    alert(currentFactory + '厂' + (currentFactory === '滁州' ? currentMachine : '') + '产量已保存');
+  });
+  // 把数量按单位分组,返回类似 "5包 + 2袋" 的字符串
+  function formatByUnit(items) {
+    const byUnit = {};
+    items.forEach(i => {
+      const u = i.unit || '包';
+      byUnit[u] = (byUnit[u] || 0) + (parseFloat(i.qty) || 0);
+    });
+    return Object.keys(byUnit).map(u => byUnit[u] + u).join(' + ') || '0';
+  }
+
+  function updateDayTotal() {
+    const date = dateInput.value;
+    let grandByUnit = {}; // 三厂合计按单位
+    // 各厂合计
+    FACTORIES.forEach(f => {
+      let factoryItems = [];
+      if (f === '滁州') {
+        // 滁州厂 = 1号机 + 2号机
+        MACHINES.forEach(m => {
+          const items = (data.production[date] && data.production[date][`滁州-${m}`]) ? data.production[date][`滁州-${m}`].filter(i => i.qty) : [];
+          factoryItems = factoryItems.concat(items);
+          const el = document.getElementById('total-' + m);
+          if (el) el.textContent = formatByUnit(items);
+          const box = document.getElementById('box-' + m);
+          if (box) box.style.background = (f === currentFactory && m === currentMachine) ? '#e8eafd' : '#f5f6fb';
+        });
+      } else {
+        factoryItems = (data.production[date] && data.production[date][f]) ? data.production[date][f].filter(i => i.qty) : [];
+      }
+      // 累加到三厂合计
+      factoryItems.forEach(i => {
+        const u = i.unit || '包';
+        grandByUnit[u] = (grandByUnit[u] || 0) + (parseFloat(i.qty) || 0);
+      });
+      const el = document.getElementById('total-' + f);
+      if (el) el.textContent = formatByUnit(factoryItems);
+      const box = document.getElementById('box-' + f);
+      if (box) box.style.background = f === currentFactory ? '#e8eafd' : '#f5f6fb';
+    });
+    // 三厂合计
+    const grandStr = Object.keys(grandByUnit).map(u => grandByUnit[u] + u).join(' + ') || '0';
+    document.getElementById('dayTotal').textContent = grandStr;
+    // 当前记录的货品种类数
+    const curKey = getCurrentKey();
+    const curItems = (data.production[date] && data.production[date][curKey]) ? data.production[date][curKey].filter(i => i.qty) : [];
+    document.getElementById('dayItems').textContent = curItems.length;
+  }
+  dateInput.addEventListener('change', renderProduction);
+  document.getElementById('prevDate').addEventListener('click', () => {
+    const d = new Date(dateInput.value); d.setDate(d.getDate()-1); dateInput.value = fmtDate(d); renderProduction();
+  });
+  document.getElementById('nextDate').addEventListener('click', () => {
+    const d = new Date(dateInput.value); d.setDate(d.getDate()+1); dateInput.value = fmtDate(d); renderProduction();
+  });
+
+  // 月工资结算
+  const salaryMonthInput = document.getElementById('salaryMonth');
+  salaryMonthInput.value = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
+  function renderSalary() {
+    const month = salaryMonthInput.value;
+    if (!data.salary[month]) {
+      // 初始化:从员工列表生成
+      data.salary[month] = data.employees.map(emp => ({
+        empId: emp.id, name: emp.name, post: emp.post,
+        salary: emp.salary, days: 0, otHours: 0, pay: 0
+      }));
+    }
+    const rows = data.salary[month];
+    const tbody = document.getElementById('salaryBody');
+    tbody.innerHTML = '';
+    // 当月实际天数:month格式为 'YYYY-MM'
+    const [yy, mm] = month.split('-').map(Number);
+    const daysInMonth = new Date(yy, mm, 0).getDate();
+    let total = 0, people = 0;
+    rows.forEach((row, idx) => {
+      const daySalary = row.salary > 0 ? (row.salary / daysInMonth) : 0;
+      const hourSalary = daySalary / 10; // 时薪 = 日薪 ÷ 10小时(一天10小时)
+      const otPay = hourSalary * (parseFloat(row.otHours) || 0); // 加班费
+      const pay = (daySalary * (parseFloat(row.days) || 0) + otPay).toFixed(2);
+      row.pay = parseFloat(pay);
+      if (row.pay > 0) people++;
+      total += row.pay;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input type="text" value="${row.name}" onchange="updateSalaryRow(${idx}, 'name', this.value)"></td>
+        <td><input type="text" value="${row.post}" onchange="updateSalaryRow(${idx}, 'post', this.value)"></td>
+        <td><input type="number" value="${row.salary}" onchange="updateSalaryRow(${idx}, 'salary', this.value)" oninput="renderSalary()" style="width:70px;"></td>
+        <td class="num"><input type="number" value="${row.days}" onchange="updateSalaryRow(${idx}, 'days', this.value)" oninput="renderSalary()" style="text-align:right;width:50px;"></td>
+        <td class="num">¥${daySalary.toFixed(2)}</td>
+        <td class="num">¥${hourSalary.toFixed(2)}</td>
+        <td class="num"><input type="number" value="${row.otHours}" onchange="updateSalaryRow(${idx}, 'otHours', this.value)" oninput="renderSalary()" style="text-align:right;width:50px;" placeholder="0"></td>
+        <td class="num" style="font-weight:700;color:#5468ff;">¥${pay}</td>
+        <td><button class="btn btn-sm btn-danger" onclick="deleteSalaryRow(${idx})">×</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+    document.getElementById('salaryTotal').textContent = '¥' + total.toFixed(2);
+    document.getElementById('monthTotal').textContent = '¥' + total.toFixed(0);
+    document.getElementById('monthDays').textContent = daysInMonth + '天';
+  }
+  window.updateSalaryRow = function(idx, key, value) {
+    const month = salaryMonthInput.value;
+    if (!data.salary[month]) return;
+    data.salary[month][idx][key] = key === 'name' || key === 'post' ? value : (parseFloat(value) || 0);
+    saveData();
+    renderSalary();
+  };
+  window.deleteSalaryRow = function(idx) {
+    const month = salaryMonthInput.value;
+    if (!data.salary[month]) return;
+    data.salary[month].splice(idx, 1);
+    saveData();
+    renderSalary();
+  };
+  document.getElementById('addSalaryRow').addEventListener('click', () => {
+    const month = salaryMonthInput.value;
+    if (!data.salary[month]) data.salary[month] = [];
+    data.salary[month].push({ empId: 0, name: '', post: '', salary: 0, days: 0, otHours: 0, pay: 0 });
+    saveData();
+    renderSalary();
+  });
+  document.getElementById('saveSalary').addEventListener('click', () => {
+    saveData();
+    alert('工资表已保存');
+  });
+  salaryMonthInput.addEventListener('change', renderSalary);
+
+  // 数据备份
+  // 月度汇总
+  const monthlyMonthInput = document.getElementById('monthlyMonth');
+  monthlyMonthInput.value = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
+  monthlyMonthInput.addEventListener('change', renderMonthly);
+
+  function renderMonthly() {
+    const month = monthlyMonthInput.value; // 'YYYY-MM'
+    const container = document.getElementById('monthlyContent');
+    if (!month) { container.innerHTML = ''; return; }
+    let html = '';
+    FACTORIES.forEach(f => {
+      // 统计该厂本月各品类包数(按单位分)
+      const byProduct = {}; // { 品名: { 包: 120, 袋: 50 } }
+      let pvcTotal = 0;
+      // 遍历该月所有日期
+      Object.keys(data.production).forEach(date => {
+        if (!date.startsWith(month)) return;
+        const dayData = data.production[date];
+        if (f === '滁州') {
+          MACHINES.forEach(m => {
+            (dayData[`滁州-${m}`] || []).forEach(i => {
+              if (!i.name || !i.qty) return;
+              const u = i.unit || '包';
+              if (!byProduct[i.name]) byProduct[i.name] = {};
+              byProduct[i.name][u] = (byProduct[i.name][u] || 0) + (parseFloat(i.qty) || 0);
+            });
+          });
+          // PVC
+          if (dayData.pvc) {
+            ['透明','白','黑'].forEach(c => {
+              pvcTotal += (parseFloat(dayData.pvc[c]) || 0);
+            });
+          }
+        } else {
+          (dayData[f] || []).forEach(i => {
+            if (!i.name || !i.qty) return;
+            const u = i.unit || '包';
+            if (!byProduct[i.name]) byProduct[i.name] = {};
+            byProduct[i.name][u] = (byProduct[i.name][u] || 0) + (parseFloat(i.qty) || 0);
+          });
+        }
+      });
+      // 厂合计
+      let factoryByUnit = {};
+      Object.keys(byProduct).forEach(name => {
+        Object.keys(byProduct[name]).forEach(u => {
+          factoryByUnit[u] = (factoryByUnit[u] || 0) + byProduct[name][u];
+        });
+      });
+      const factoryStr = Object.keys(factoryByUnit).map(u => factoryByUnit[u] + u).join(' + ') || '0';
+
+      html += `<div class="monthly-factory">
+        <div class="mf-header"><h3>🏢 ${f}厂</h3><span class="mf-total">${factoryStr}</span></div>`;
+      if (f === '滁州' && pvcTotal > 0) {
+        html += `<div class="mf-pvc">♻️ PVC合计:${pvcTotal} 包(不计入考核)</div>`;
+      }
+      html += `<table class="mf-table"><thead><tr><th>品类</th><th class="num">数量</th></tr></thead><tbody>`;
+      const names = Object.keys(byProduct);
+      if (!names.length) {
+        html += '<tr><td colspan="2" style="text-align:center;color:#8a90a8;">本月无记录</td></tr>';
+      } else {
+        names.forEach(name => {
+          const str = Object.keys(byProduct[name]).map(u => byProduct[name][u] + u).join(' + ');
+          html += `<tr><td>${name}</td><td class="num">${str}</td></tr>`;
+        });
+      }
+      html += `</tbody></table></div>`;
+    });
+    container.innerHTML = html;
+  }
+
+  function renderData() {
+    document.getElementById('dataJson').value = JSON.stringify(data, null, 2);
+  }
+  document.getElementById('copyData').addEventListener('click', () => {
+    const ta = document.getElementById('dataJson');
+    ta.select();
+    document.execCommand('copy');
+    alert('备份已复制');
+  });
+  document.getElementById('loadData').addEventListener('click', () => {
+    const txt = prompt('请粘贴备份数据:'); if (!txt) return;
+    try { data = JSON.parse(txt); saveData(); alert('数据已恢复'); renderAll(); } catch(e) { alert('数据格式错误'); }
+  });
+  document.getElementById('clearAll').addEventListener('click', () => {
+    if (!confirm('确定清空所有数据?')) return;
+    data = { employees: [], production: {}, salary: {} };
+    saveData();
+    renderAll();
+  });
+
+  function renderAll() {
+    renderEmployees(); renderProduction(); renderSalary(); renderMonthly(); renderData();
+  }
+  renderAll();
+</script>
+
+</body>
+</html>
