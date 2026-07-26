@@ -288,6 +288,23 @@
       <button class="btn btn-danger" id="clearAll">清空所有数据</button>
     </div>
   </div>
+  <div class="card">
+    <div class="section-header"><h2>☁️ 云端同步</h2></div>
+    <div class="tip-box" style="background:#e8eafd;color:#3d4edb;">数据自动备份到GitHub仓库,换手机、清缓存都不怕丢。Token只存在当前浏览器,不会上传到别处。</div>
+    <div class="form-row" style="margin-bottom:10px;">
+      <input type="password" id="githubToken" placeholder="GitHub Token(以ghp_开头)" style="flex:3;">
+      <button class="btn btn-sm" id="saveToken">保存Token</button>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+      <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:#6b7293; cursor:pointer;">
+        <input type="checkbox" id="autoSync" style="width:auto; height:auto;"> 每次保存自动同步到云端
+      </label>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn" id="syncToCloud">立即同步到云端</button>
+      <button class="btn btn-secondary" id="syncFromCloud">从云端恢复</button>
+    </div>
+  </div>
 </div>
 
 <div class="footer-tip">伟源鼎盛 · 每日工作记录与工资结算</div>
@@ -313,7 +330,12 @@
   }
   if (!data.shipped) data.shipped = {};
 
-  function saveData() { localStorage.setItem('weiyuanData2', JSON.stringify(data)); }
+  function saveData(shouldAutoSync = true) {
+    localStorage.setItem('weiyuanData2', JSON.stringify(data));
+    if (shouldAutoSync && localStorage.getItem('weiyuanAutoSync') === 'true') {
+      saveToCloud().catch(e => console.log('auto sync failed', e));
+    }
+  }
   function fmtDate(d) { return d.toISOString().split('T')[0]; }
   function pad(n) { return n < 10 ? '0' + n : n; }
   function cnWeek(d) { return ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()]; }
@@ -859,8 +881,55 @@
     container.innerHTML = html;
   }
 
+  // 云端同步(GitHub仓库文件)
+  const REPO_OWNER = 'weiy2023';
+  const REPO_NAME = 'weiyuan';
+  const DATA_FILE = 'data.json';
+
+  async function saveToCloud() {
+    const token = localStorage.getItem('githubToken');
+    if (!token) { alert('请先输入并保存GitHub Token'); return; }
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+    let sha = null;
+    try {
+      const resp = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DATA_FILE}`, {
+        headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
+      });
+      if (resp.ok) {
+        const result = await resp.json();
+        sha = result.sha;
+      }
+    } catch(e) {}
+    const body = { message: 'sync data', content };
+    if (sha) body.sha = sha;
+    const resp = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DATA_FILE}`, {
+      method: 'PUT',
+      headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.message);
+    alert('✅ 已同步到云端');
+  }
+
+  async function loadFromCloud() {
+    const token = localStorage.getItem('githubToken');
+    if (!token) { alert('请先保存GitHub Token'); return; }
+    const resp = await fetch(`https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/master/${DATA_FILE}?t=${Date.now()}`, { cache: 'no-store' });
+    if (!resp.ok) throw new Error('云端暂无数据或读取失败');
+    const text = await resp.text();
+    if (!text || !text.trim()) throw new Error('云端数据为空');
+    data = JSON.parse(text);
+    saveData(false); // 不触发自动同步,避免循环
+    renderAll();
+    alert('✅ 已从云端恢复');
+  }
+
   function renderData() {
     document.getElementById('dataJson').value = JSON.stringify(data, null, 2);
+    const token = localStorage.getItem('githubToken');
+    if (token) document.getElementById('githubToken').value = token;
+    document.getElementById('autoSync').checked = localStorage.getItem('weiyuanAutoSync') === 'true';
   }
   document.getElementById('copyData').addEventListener('click', () => {
     const ta = document.getElementById('dataJson');
@@ -874,9 +943,23 @@
   });
   document.getElementById('clearAll').addEventListener('click', () => {
     if (!confirm('确定清空所有数据?')) return;
-    data = { employees: [], production: {}, salary: {} };
+    data = { employees: [], production: {}, salary: {}, shipped: {} };
     saveData();
     renderAll();
+  });
+  document.getElementById('saveToken').addEventListener('click', () => {
+    localStorage.setItem('githubToken', document.getElementById('githubToken').value.trim());
+    alert('Token已保存');
+  });
+  document.getElementById('autoSync').addEventListener('change', function() {
+    localStorage.setItem('weiyuanAutoSync', this.checked ? 'true' : 'false');
+    if (this.checked) saveToCloud().catch(e => alert('自动同步开启失败:' + e.message));
+  });
+  document.getElementById('syncToCloud').addEventListener('click', () => {
+    saveToCloud().catch(e => alert('同步失败:' + e.message));
+  });
+  document.getElementById('syncFromCloud').addEventListener('click', () => {
+    loadFromCloud().catch(e => alert('恢复失败:' + e.message));
   });
 
   function renderAll() {
