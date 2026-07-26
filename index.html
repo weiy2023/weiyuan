@@ -742,13 +742,22 @@
   salaryMonthInput.value = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
   function renderSalary() {
     const month = salaryMonthInput.value;
-    if (!data.salary[month]) {
-      // 初始化:从员工列表生成
-      data.salary[month] = data.employees.map(emp => ({
-        empId: emp.id, name: emp.name, post: emp.post,
-        salary: emp.salary, days: 0, otHours: 0, pay: 0
-      }));
-    }
+    if (!data.salary[month]) data.salary[month] = [];
+    // 同步员工:把员工管理里新增的人补到工资表,并更新姓名/岗位/月薪
+    data.employees.forEach(emp => {
+      let row = data.salary[month].find(r => r.empId === emp.id);
+      if (!row) {
+        // 新员工,添加到工资表
+        row = { empId: emp.id, name: emp.name, post: emp.post, salary: emp.salary, days: 0, otHours: 0, pay: 0 };
+        data.salary[month].push(row);
+      } else {
+        // 已存在,更新姓名/岗位/月薪(保留已填的出勤天数和加班小时)
+        row.name = emp.name;
+        row.post = emp.post;
+        row.salary = emp.salary;
+      }
+    });
+    // 如果员工管理里删了人,工资表里保留旧记录(但会标记),这里暂不处理删除
     const rows = data.salary[month];
     const tbody = document.getElementById('salaryBody');
     tbody.innerHTML = '';
@@ -786,6 +795,16 @@
     const month = salaryMonthInput.value;
     if (!data.salary[month]) return;
     data.salary[month][idx][key] = key === 'name' || key === 'post' ? value : (parseFloat(value) || 0);
+    // 改姓名/岗位/月薪时,同步回员工管理(主数据)
+    const row = data.salary[month][idx];
+    if (key === 'name' || key === 'post' || key === 'salary') {
+      const emp = data.employees.find(e => e.id === row.empId);
+      if (emp) {
+        if (key === 'name') emp.name = value;
+        if (key === 'post') emp.post = value;
+        if (key === 'salary') emp.salary = parseFloat(value) || 0;
+      }
+    }
     saveData();
     renderSalary();
   };
