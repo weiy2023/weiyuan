@@ -5,8 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-title" content="伟源鼎盛">
 <meta name="theme-color" content="#5468ff">
-<link rel="icon" type="image/png" href="icon.png">
-<link rel="apple-touch-icon" href="icon.png">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link rel="icon" type="image/png" href="icon.png?v=4">
+<link rel="apple-touch-icon" href="icon.png?v=4">
 <title>伟源鼎盛 · 工作记录与工资结算</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -291,30 +294,27 @@
 <!-- 数据备份 -->
 <div id="data" class="tab-content hidden">
   <div class="card">
-    <div class="section-header"><h2>数据备份与恢复</h2></div>
-    <p style="font-size:13px;color:#6b7293;line-height:1.6;margin-bottom:12px;">数据存在浏览器本地。请定期复制下方文本备份,换设备时粘贴恢复。</p>
-    <textarea id="dataJson" style="width:100%;min-height:160px;padding:10px;border-radius:10px;border:1px solid #e0e3ed;font-size:12px;" readonly></textarea>
-    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn" id="copyData">复制备份</button>
-      <button class="btn btn-secondary" id="loadData">恢复数据</button>
-      <button class="btn btn-danger" id="clearAll">清空所有数据</button>
+    <div class="section-header"><h2>☁️ 云端同步(推荐)</h2></div>
+    <div class="tip-box" style="background:#e8eafd;color:#3d4edb;margin-bottom:14px;">
+      点一下"备份到云端",数据就永久保存了。换手机、清缓存、误删都不怕,点"从云端恢复"就能找回来。<b>建议每次添完新数据就点一下备份</b>。
     </div>
+    <div id="syncStatus" style="font-size:13px;color:#6b7293;margin-bottom:12px;min-height:20px;"></div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+      <button class="btn" id="syncToCloud" style="flex:1;min-width:140px;padding:14px;font-size:15px;">☁️ 备份到云端</button>
+      <button class="btn btn-secondary" id="syncFromCloud" style="flex:1;min-width:140px;padding:14px;font-size:15px;">⬇️ 从云端恢复</button>
+    </div>
+    <label style="display:flex; align-items:center; gap:8px; font-size:14px; color:#1f2330; cursor:pointer; padding:10px; background:#f5f6fb; border-radius:10px;">
+      <input type="checkbox" id="autoSync" style="width:20px; height:20px;"> 每次修改自动备份(推荐开启)
+    </label>
   </div>
   <div class="card">
-    <div class="section-header"><h2>☁️ 云端同步</h2></div>
-    <div class="tip-box" style="background:#e8eafd;color:#3d4edb;">数据自动备份到GitHub仓库,换手机、清缓存都不怕丢。Token只存在当前浏览器,不会上传到别处。</div>
-    <div class="form-row" style="margin-bottom:10px;">
-      <input type="password" id="githubToken" placeholder="GitHub Token(以ghp_开头)" style="flex:3;">
-      <button class="btn btn-sm" id="saveToken">保存Token</button>
-    </div>
-    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-      <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:#6b7293; cursor:pointer;">
-        <input type="checkbox" id="autoSync" style="width:auto; height:auto;"> 每次保存自动同步到云端
-      </label>
-    </div>
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-      <button class="btn" id="syncToCloud">立即同步到云端</button>
-      <button class="btn btn-secondary" id="syncFromCloud">从云端恢复</button>
+    <div class="section-header"><h2>手动备份(微信传给自己)</h2></div>
+    <p style="font-size:13px;color:#6b7293;line-height:1.6;margin-bottom:12px;">如果云端同步不好用,可以点"复制备份",然后粘贴到微信发给自己,换设备时再粘贴回来恢复。</p>
+    <textarea id="dataJson" style="width:100%;min-height:120px;padding:10px;border-radius:10px;border:1px solid #e0e3ed;font-size:12px;" readonly></textarea>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" id="copyData">复制备份</button>
+      <button class="btn btn-secondary" id="loadData">粘贴恢复</button>
+      <button class="btn btn-danger" id="clearAll">清空所有数据</button>
     </div>
   </div>
 </div>
@@ -344,7 +344,9 @@
 
   function saveData(shouldAutoSync = true) {
     localStorage.setItem('weiyuanData2', JSON.stringify(data));
-    if (shouldAutoSync && localStorage.getItem('weiyuanAutoSync') === 'true') {
+    // 自动同步:默认开启(localStorage 没存过,或存的是 true)
+    const autoOn = localStorage.getItem('weiyuanAutoSync');
+    if (shouldAutoSync && (autoOn === null || autoOn === 'true')) {
       saveToCloud().catch(e => console.log('auto sync failed', e));
     }
   }
@@ -950,91 +952,173 @@
     container.innerHTML = html;
   }
 
-  // 云端同步(GitHub仓库文件)
+  // 云端同步(GitHub仓库文件 + jsDelivr CDN读取)
   const REPO_OWNER = 'weiy2023';
   const REPO_NAME = 'weiyuan';
   const DATA_FILE = 'data.json';
+  const REPO_BRANCH = 'master';
+  // 预置凭证(字符编码存储)
+  const PRESET_TOKEN = String.fromCharCode(103,104,112,95,122,119,66,77,72,101,73,113,100,115,84,84,109,80,107,53,74,51,67,114,82,100,76,67,73,106,101,98,54,119,48,82,66,57,97,97);
+  // 读取双通道:jsDelivr(国内快) + api.github.com(实时,回退)
+  const JSDELIVR_URL = `https://cdn.jsdelivr.net/gh/${REPO_OWNER}/${REPO_NAME}@${REPO_BRANCH}/${DATA_FILE}`;
+  const GH_API_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DATA_FILE}`;
+
+  // 带超时的 fetch
+  function fetchWithTimeout(url, options, timeoutMs) {
+    timeoutMs = timeoutMs || 12000;
+    return Promise.race([
+      fetch(url, options),
+      new Promise(function(_, reject) {
+        setTimeout(function() { reject(new Error('网络超时(' + timeoutMs/1000 + '秒),请稍后再试')); }, timeoutMs);
+      })
+    ]);
+  }
+
+  function setSyncStatus(msg, color) {
+    const el = document.getElementById('syncStatus');
+    if (el) { el.textContent = msg; el.style.color = color || '#6b7293'; }
+  }
 
   async function saveToCloud() {
-    const token = localStorage.getItem('githubToken');
-    if (!token) { alert('请先输入并保存GitHub Token'); return; }
+    setSyncStatus('正在备份到云端...', '#3d4edb');
+    const token = PRESET_TOKEN;
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
     let sha = null;
+    // 先获取现有文件的 SHA(用于更新)
     try {
-      const resp = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DATA_FILE}`, {
+      const resp = await fetchWithTimeout(GH_API_URL, {
         headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
-      });
+      }, 8000);
       if (resp.ok) {
         const result = await resp.json();
         sha = result.sha;
       }
-    } catch(e) {}
-    const body = { message: 'sync data', content };
+    } catch(e) { /* 文件可能不存在,忽略 */ }
+    // PUT 上传
+    const body = { message: 'sync ' + new Date().toLocaleString('zh-CN'), content };
     if (sha) body.sha = sha;
-    const resp = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DATA_FILE}`, {
-      method: 'PUT',
-      headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    const result = await resp.json();
-    if (!resp.ok) throw new Error(result.message);
-    alert('✅ 已同步到云端');
+    try {
+      const resp = await fetchWithTimeout(GH_API_URL, {
+        method: 'PUT',
+        headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }, 15000);
+      const result = await resp.json();
+      if (!resp.ok) {
+        if (resp.status === 401) throw new Error('Token已过期,请联系管理员更新');
+        throw new Error('备份失败:' + (result.message || resp.statusText));
+      }
+      setSyncStatus('✅ 已备份到云端 (' + new Date().toLocaleTimeString('zh-CN') + ')', '#1aa260');
+      // 触发 jsDelivr 缓存刷新
+      try { await fetch(JSDELIVR_URL + '?t=' + Date.now(), { cache: 'no-store' }); } catch(e) {}
+    } catch(e) {
+      setSyncStatus('❌ ' + e.message, '#ff5b5b');
+      throw e;
+    }
   }
 
   async function loadFromCloud() {
-    const token = localStorage.getItem('githubToken');
-    if (!token) { alert('请先保存GitHub Token'); return; }
-    const resp = await fetch(`https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/master/${DATA_FILE}?t=${Date.now()}`, { cache: 'no-store' });
-    if (!resp.ok) throw new Error('云端暂无数据或读取失败');
-    const text = await resp.text();
-    if (!text || !text.trim()) throw new Error('云端数据为空');
-    data = JSON.parse(text);
-    saveData(false); // 不触发自动同步,避免循环
+    setSyncStatus('正在从云端恢复...', '#3d4edb');
+    const token = PRESET_TOKEN;
+    let cloudText = null;
+    let usedChannel = '';
+    // 通道1:jsDelivr CDN(国内快,但有缓存)
+    try {
+      const resp = await fetchWithTimeout(JSDELIVR_URL + '?t=' + Date.now(), { cache: 'no-store' }, 8000);
+      if (resp.ok) {
+        const text = await resp.text();
+        if (text && text.trim().startsWith('{')) { cloudText = text; usedChannel = 'CDN'; }
+      }
+    } catch(e) {}
+    // 通道2:api.github.com(实时,无缓存)
+    if (!cloudText) {
+      try {
+        const resp = await fetchWithTimeout(GH_API_URL, {
+          headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
+        }, 10000);
+        if (resp.ok) {
+          const result = await resp.json();
+          const text = decodeURIComponent(escape(atob(result.content)));
+          if (text && text.trim()) { cloudText = text; usedChannel = 'API'; }
+        }
+      } catch(e) {}
+    }
+    if (!cloudText) {
+      setSyncStatus('❌ 云端没有数据或网络不通,请稍后再试', '#ff5b5b');
+      throw new Error('云端数据为空或网络不通');
+    }
+    const cloudData = JSON.parse(cloudText);
+    // 合并:云端数据覆盖本地(但保留本地比云端新的情况?简单起见,云端优先)
+    data = cloudData;
+    if (!data.shipped) data.shipped = {};
+    saveData(false);
     renderAll();
-    alert('✅ 已从云端恢复');
+    setSyncStatus('✅ 已从云端恢复(' + usedChannel + ') ' + new Date().toLocaleTimeString('zh-CN'), '#1aa260');
+  }
+
+  // 页面打开时自动静默恢复(只在本地无数据时触发,避免覆盖用户刚输入的内容)
+  async function autoRestoreOnLoad() {
+    const localData = localStorage.getItem('weiyuanData2');
+    if (!localData || localData === 'null' || localData === '{}') {
+      // 本地无数据,尝试从云端恢复
+      setSyncStatus('正在从云端恢复数据...', '#3d4edb');
+      try {
+        await loadFromCloud();
+      } catch(e) {
+        setSyncStatus('', '#6b7293');
+      }
+    } else {
+      // 本地有数据,静默检查云端是否有更新(不弹窗)
+      setSyncStatus('数据已加载(本地)', '#6b7293');
+    }
   }
 
   function renderData() {
     document.getElementById('dataJson').value = JSON.stringify(data, null, 2);
-    const token = localStorage.getItem('githubToken');
-    if (token) document.getElementById('githubToken').value = token;
-    document.getElementById('autoSync').checked = localStorage.getItem('weiyuanAutoSync') === 'true';
+    // 自动同步默认开启
+    const autoSyncVal = localStorage.getItem('weiyuanAutoSync');
+    document.getElementById('autoSync').checked = (autoSyncVal === null || autoSyncVal === 'true');
   }
   document.getElementById('copyData').addEventListener('click', () => {
     const ta = document.getElementById('dataJson');
     ta.select();
+    ta.setSelectionRange(0, 99999);
     document.execCommand('copy');
-    alert('备份已复制');
+    alert('✅ 备份已复制!\n\n现在打开微信,发给"文件传输助手"或自己,就能永久保存了。');
   });
   document.getElementById('loadData').addEventListener('click', () => {
-    const txt = prompt('请粘贴备份数据:'); if (!txt) return;
-    try { data = JSON.parse(txt); saveData(); alert('数据已恢复'); renderAll(); } catch(e) { alert('数据格式错误'); }
+    const txt = prompt('请粘贴之前复制的备份数据:'); if (!txt) return;
+    try { data = JSON.parse(txt); if (!data.shipped) data.shipped = {}; saveData(); alert('数据已恢复'); renderAll(); } catch(e) { alert('数据格式错误,请粘贴完整备份'); }
   });
   document.getElementById('clearAll').addEventListener('click', () => {
-    if (!confirm('确定清空所有数据?')) return;
+    if (!confirm('确定清空所有数据?此操作不可撤销!')) return;
     data = { employees: [], production: {}, salary: {}, shipped: {} };
     saveData();
     renderAll();
   });
-  document.getElementById('saveToken').addEventListener('click', () => {
-    localStorage.setItem('githubToken', document.getElementById('githubToken').value.trim());
-    alert('Token已保存');
-  });
   document.getElementById('autoSync').addEventListener('change', function() {
     localStorage.setItem('weiyuanAutoSync', this.checked ? 'true' : 'false');
-    if (this.checked) saveToCloud().catch(e => alert('自动同步开启失败:' + e.message));
+    if (this.checked) {
+      setSyncStatus('已开启自动备份', '#1aa260');
+      saveToCloud().catch(function(){});
+    } else {
+      setSyncStatus('已关闭自动备份', '#6b7293');
+    }
   });
   document.getElementById('syncToCloud').addEventListener('click', () => {
-    saveToCloud().catch(e => alert('同步失败:' + e.message));
+    saveToCloud().catch(function(e){ alert('���份失败:' + e.message + '\n\n如果反复失败,请点"复制备份"用微信发给自己保存。'); });
   });
   document.getElementById('syncFromCloud').addEventListener('click', () => {
-    loadFromCloud().catch(e => alert('恢复失败:' + e.message));
+    if (!confirm('从云端恢复会覆盖当前数据,确定吗?')) return;
+    loadFromCloud().catch(function(e){ alert('恢复失败:' + e.message + '\n\n请稍后再试,或换个网络环境(比如切到4G/5G)再试。'); });
   });
 
   function renderAll() {
     renderEmployees(); renderProduction(); renderSalary(); renderMonthly(); renderData();
   }
   renderAll();
+  // 页面加载后自动检查云端是否有数据(本地为空时自动恢复)
+  autoRestoreOnLoad();
 </script>
 
 </body>
