@@ -108,6 +108,18 @@
   .salary-table .num { text-align: right; }
   .salary-table .total-row { font-weight: 700; color: #5468ff; }
   .salary-table .total-row td { border-top: 2px solid #5468ff; border-bottom: none; padding-top: 12px; }
+  /* 工资卡片 */
+  .salary-card { background: #f5f6fb; border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+  .sc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .sc-name { font-size: 17px; font-weight: 700; color: #1f2330; }
+  .sc-pay { font-size: 18px; font-weight: 700; color: #5468ff; }
+  .sc-info { font-size: 12px; color: #8a90a8; margin-bottom: 10px; }
+  .sc-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .sc-field { display: flex; flex-direction: column; gap: 4px; }
+  .sc-field label { font-size: 11px; color: #8a90a8; font-weight: 500; }
+  .sc-field input { padding: 10px 8px; border-radius: 8px; border: 1px solid #e0e3ed; font-size: 16px; outline: none; background: #fff; width: 100%; }
+  .sc-field input:focus { border-color: #5468ff; }
+  .sc-calc { font-size: 12px; color: #6b7293; background: #fff; padding: 8px 10px; border-radius: 8px; }
 
   .month-picker { display: flex; align-items: center; gap: 8px; }
   .month-picker input { padding: 8px 12px; border-radius: 10px; border: 1px solid #e0e3ed; font-size: 14px; }
@@ -247,11 +259,11 @@
       <div class="summary-box highlight"><div class="v" id="monthTotal">¥0</div><div class="k">本月合计发放</div></div>
       <div class="summary-box"><div class="v" id="monthDays">0</div><div class="k">当月天数</div></div>
     </div>
-    <table class="salary-table">
-      <thead><tr><th>姓名</th><th>岗位</th><th>月薪</th><th class="num">出勤<br>天数</th><th class="num">日薪</th><th class="num">时薪</th><th class="num">加班<br>小时</th><th class="num">应发工资</th><th></th></tr></thead>
-      <tbody id="salaryBody"></tbody>
-      <tfoot><tr class="total-row"><td colspan="7">合计</td><td class="num" id="salaryTotal">¥0</td><td></td></tr></tfoot>
-    </table>
+    <div id="salaryBody"></div>
+    <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;background:#e8eafd;border-radius:12px;padding:14px 16px;">
+      <span style="font-weight:700;font-size:16px;color:#1f2330;">本月合计发放</span>
+      <span style="font-weight:700;font-size:22px;color:#5468ff;" id="salaryTotal">¥0</span>
+    </div>
     <div style="margin-top:12px;display:flex;gap:8px;">
       <button class="btn" id="saveSalary">保存工资表</button>
       <button class="btn btn-secondary" id="addSalaryRow">+ 添加一行</button>
@@ -742,72 +754,110 @@
   salaryMonthInput.value = `${today.getFullYear()}-${pad(today.getMonth()+1)}`;
   function renderSalary() {
     const month = salaryMonthInput.value;
+    if (!month) return;
     if (!data.salary[month]) data.salary[month] = [];
     // 同步员工:把员工管理里新增的人补到工资表,并更新姓名/岗位/月薪
     data.employees.forEach(emp => {
       let row = data.salary[month].find(r => r.empId === emp.id);
       if (!row) {
-        // 新员工,添加到工资表
         row = { empId: emp.id, name: emp.name, post: emp.post, salary: emp.salary, days: 0, otHours: 0, pay: 0 };
         data.salary[month].push(row);
       } else {
-        // 已存在,更新姓名/岗位/月薪(保留已填的出勤天数和加班小时)
         row.name = emp.name;
         row.post = emp.post;
         row.salary = emp.salary;
       }
     });
-    // 如果员工管理里删了人,工资表里保留旧记录(但会标记),这里暂不处理删除
     const rows = data.salary[month];
-    const tbody = document.getElementById('salaryBody');
-    tbody.innerHTML = '';
+    const container = document.getElementById('salaryBody');
+    container.innerHTML = '';
     // 当月实际天数:month格式为 'YYYY-MM'
     const [yy, mm] = month.split('-').map(Number);
     const daysInMonth = new Date(yy, mm, 0).getDate();
     let total = 0, people = 0;
     rows.forEach((row, idx) => {
       const daySalary = row.salary > 0 ? (row.salary / daysInMonth) : 0;
-      const hourSalary = daySalary / 10; // 时薪 = 日薪 ÷ 10小时(一天10小时)
-      const otPay = hourSalary * (parseFloat(row.otHours) || 0); // 加班费
-      const pay = (daySalary * (parseFloat(row.days) || 0) + otPay).toFixed(2);
-      row.pay = parseFloat(pay);
-      if (row.pay > 0) people++;
-      total += row.pay;
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><input type="text" value="${row.name}" onchange="updateSalaryRow(${idx}, 'name', this.value)"></td>
-        <td><input type="text" value="${row.post}" onchange="updateSalaryRow(${idx}, 'post', this.value)"></td>
-        <td><input type="number" value="${row.salary}" onchange="updateSalaryRow(${idx}, 'salary', this.value)" oninput="renderSalary()" style="width:70px;"></td>
-        <td class="num"><input type="number" value="${row.days}" onchange="updateSalaryRow(${idx}, 'days', this.value)" oninput="renderSalary()" style="text-align:right;width:50px;"></td>
-        <td class="num">¥${daySalary.toFixed(2)}</td>
-        <td class="num">¥${hourSalary.toFixed(2)}</td>
-        <td class="num"><input type="number" value="${row.otHours}" onchange="updateSalaryRow(${idx}, 'otHours', this.value)" oninput="renderSalary()" style="text-align:right;width:50px;" placeholder="0"></td>
-        <td class="num" style="font-weight:700;color:#5468ff;">¥${pay}</td>
-        <td><button class="btn btn-sm btn-danger" onclick="deleteSalaryRow(${idx})">×</button></td>
+      const hourSalary = daySalary / 10;
+      const otPay = hourSalary * (parseFloat(row.otHours) || 0);
+      const pay = (daySalary * (parseFloat(row.days) || 0) + otPay);
+      row.pay = pay;
+      if (pay > 0) people++;
+      total += pay;
+      const card = document.createElement('div');
+      card.className = 'salary-card';
+      card.innerHTML = `
+        <div class="sc-header">
+          <span class="sc-name">${row.name || '未命名'}</span>
+          <span class="sc-pay">¥${pay.toFixed(2)}</span>
+          <button class="btn btn-sm btn-danger" onclick="deleteSalaryRow(${idx})" style="margin-left:8px;">删</button>
+        </div>
+        <div class="sc-info">${row.post || '未填岗位'} · 月薪 ¥${row.salary}</div>
+        <div class="sc-grid">
+          <div class="sc-field">
+            <label>月薪(元)</label>
+            <input type="number" value="${row.salary}" data-idx="${idx}" data-key="salary" placeholder="0">
+          </div>
+          <div class="sc-field">
+            <label>出勤天数</label>
+            <input type="number" value="${row.days}" data-idx="${idx}" data-key="days" placeholder="0">
+          </div>
+          <div class="sc-field">
+            <label>加班小时</label>
+            <input type="number" value="${row.otHours}" data-idx="${idx}" data-key="otHours" placeholder="0">
+          </div>
+        </div>
+        <div class="sc-calc">
+          日薪 ¥${daySalary.toFixed(2)} · 时薪 ¥${hourSalary.toFixed(2)} · 应发 ¥${pay.toFixed(2)}
+        </div>
       `;
-      tbody.appendChild(tr);
+      container.appendChild(card);
     });
+    if (!rows.length) {
+      container.innerHTML = '<div style="color:#8a90a8;font-size:13px;text-align:center;padding:20px;">请先在「员工管理」添加员工</div>';
+    }
     document.getElementById('salaryTotal').textContent = '¥' + total.toFixed(2);
     document.getElementById('monthTotal').textContent = '¥' + total.toFixed(0);
     document.getElementById('monthDays').textContent = daysInMonth + '天';
+    // 绑定输入事件(不重建表格,只更新数据和计算)
+    container.querySelectorAll('input').forEach(input => {
+      input.addEventListener('input', function() {
+        const idx = parseInt(this.dataset.idx);
+        const key = this.dataset.key;
+        const val = key === 'salary' || key === 'days' || key === 'otHours' ? (parseFloat(this.value) || 0) : this.value;
+        data.salary[month][idx][key] = val;
+        // 同步月薪回员工管理
+        if (key === 'salary') {
+          const emp = data.employees.find(e => e.id === data.salary[month][idx].empId);
+          if (emp) emp.salary = val;
+        }
+        saveData();
+        updateSalaryCalc(month);
+      });
+    });
   }
-  window.updateSalaryRow = function(idx, key, value) {
-    const month = salaryMonthInput.value;
-    if (!data.salary[month]) return;
-    data.salary[month][idx][key] = key === 'name' || key === 'post' ? value : (parseFloat(value) || 0);
-    // 改姓名/岗位/月薪时,同步回员工管理(主数据)
-    const row = data.salary[month][idx];
-    if (key === 'name' || key === 'post' || key === 'salary') {
-      const emp = data.employees.find(e => e.id === row.empId);
-      if (emp) {
-        if (key === 'name') emp.name = value;
-        if (key === 'post') emp.post = value;
-        if (key === 'salary') emp.salary = parseFloat(value) || 0;
+  // 只更新计算结果,不重建表格(避免输入中断)
+  function updateSalaryCalc(month) {
+    const rows = data.salary[month];
+    const [yy, mm] = month.split('-').map(Number);
+    const daysInMonth = new Date(yy, mm, 0).getDate();
+    let total = 0;
+    const cards = document.querySelectorAll('#salaryBody .salary-card');
+    rows.forEach((row, idx) => {
+      const daySalary = row.salary > 0 ? (row.salary / daysInMonth) : 0;
+      const hourSalary = daySalary / 10;
+      const otPay = hourSalary * (parseFloat(row.otHours) || 0);
+      const pay = daySalary * (parseFloat(row.days) || 0) + otPay;
+      row.pay = pay;
+      total += pay;
+      const card = cards[idx];
+      if (card) {
+        card.querySelector('.sc-pay').textContent = '¥' + pay.toFixed(2);
+        card.querySelector('.sc-calc').textContent = `日薪 ¥${daySalary.toFixed(2)} · 时薪 ¥${hourSalary.toFixed(2)} · 应发 ¥${pay.toFixed(2)}`;
       }
-    }
-    saveData();
-    renderSalary();
-  };
+    });
+    document.getElementById('salaryTotal').textContent = '¥' + total.toFixed(2);
+    document.getElementById('monthTotal').textContent = '¥' + total.toFixed(0);
+  }
   window.deleteSalaryRow = function(idx) {
     const month = salaryMonthInput.value;
     if (!data.salary[month]) return;
